@@ -110,7 +110,7 @@ It's called a frame block to distinguish it from a basic block in the
 compiler IR.
 */
 
-enum fblocktype { WHILE_LOOP, FOR_LOOP, TRY_EXCEPT, FINALLY_TRY, FINALLY_END,
+enum fblocktype { WHILE_LOOP, DO_WHILE_LOOP, FOR_LOOP, TRY_EXCEPT, FINALLY_TRY, FINALLY_END,
                   WITH, ASYNC_WITH, HANDLER_CLEANUP, POP_VALUE, EXCEPTION_HANDLER,
                   EXCEPTION_GROUP_HANDLER, ASYNC_COMPREHENSION_GENERATOR };
 
@@ -3237,6 +3237,32 @@ compiler_while(struct compiler *c, stmt_ty s)
 }
 
 static int
+compiler_dowhile(struct compiler *c, stmt_ty s)
+{
+    NEW_JUMP_TARGET_LABEL(c, loop);
+    NEW_JUMP_TARGET_LABEL(c, test);
+    NEW_JUMP_TARGET_LABEL(c, end);
+
+    USE_LABEL(c, loop);
+
+    RETURN_IF_ERROR(compiler_push_fblock(c, LOC(s), DO_WHILE_LOOP, loop, end, NULL));
+
+    VISIT_SEQ(c, stmt, s->v.DoWhile.body);
+
+    USE_LABEL(c, test);
+    RETURN_IF_ERROR(compiler_jump_if(c, LOC(s), s->v.DoWhile.test, loop, 1));
+
+    compiler_pop_fblock(c, DO_WHILE_LOOP, loop);
+
+    if (s->v.DoWhile.orelse) {
+        VISIT_SEQ(c, stmt, s->v.DoWhile.orelse);
+    }
+
+    USE_LABEL(c, end);
+    return SUCCESS;
+}
+
+static int
 compiler_return(struct compiler *c, stmt_ty s)
 {
     location loc = LOC(s);
@@ -4072,6 +4098,8 @@ compiler_visit_stmt(struct compiler *c, stmt_ty s)
         return compiler_for(c, s);
     case While_kind:
         return compiler_while(c, s);
+    case DoWhile_kind:
+        return compiler_dowhile(c, s);
     case If_kind:
         return compiler_if(c, s);
     case Match_kind:
