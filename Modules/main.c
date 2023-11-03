@@ -22,9 +22,7 @@
 #endif
 /* End of includes for exit_sigint() */
 
-#define COPYRIGHT \
-    "Type \"help\", \"copyright\", \"credits\" or \"license\" " \
-    "for more information."
+#define COPYRIGHT "Modified Python version by Kalinote, for learning and personal use only.\nType \"help\", \"copyright\", \"credits\" or \"license\" for more infomation."
 
 /* --- pymain_init() ---------------------------------------------- */
 
