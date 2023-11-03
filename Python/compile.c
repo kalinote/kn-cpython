@@ -1589,6 +1589,7 @@ compiler_unwind_fblock(struct compiler *c, location *ploc,
 {
     switch (info->fb_type) {
         case WHILE_LOOP:
+        case DO_WHILE_LOOP:
         case EXCEPTION_HANDLER:
         case EXCEPTION_GROUP_HANDLER:
         case ASYNC_COMPREHENSION_GENERATOR:
@@ -1696,7 +1697,8 @@ compiler_unwind_fblock_stack(struct compiler *c, location *ploc,
         return compiler_error(
             c, *ploc, "'break', 'continue' and 'return' cannot appear in an except* block");
     }
-    if (loop != NULL && (top->fb_type == WHILE_LOOP || top->fb_type == FOR_LOOP)) {
+    if (loop != NULL && (top->fb_type == WHILE_LOOP || top->fb_type == FOR_LOOP || top->fb_type == DO_WHILE_LOOP)) {
+    // if (loop != NULL && (top->fb_type == WHILE_LOOP || top->fb_type == FOR_LOOP)) {
         *loop = top;
         return SUCCESS;
     }
