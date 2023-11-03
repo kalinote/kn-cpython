@@ -205,6 +205,14 @@
 
    Token value for ``"!"``.
 
+.. data:: EQARROW
+
+   Token value for ``"==>"``.
+
+.. data:: LEFTEQARROW
+
+   Token value for ``"<=="``.
+
 .. data:: OP
 
 .. data:: TYPE_IGNORE

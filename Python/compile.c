@@ -3047,6 +3047,55 @@ compiler_lambda(struct compiler *c, expr_ty e)
 }
 
 static int
+compiler_arrowlbd(struct compiler *c, expr_ty e) {
+    PyCodeObject *co;
+    Py_ssize_t funcflags;
+    arguments_ty args = e->v.ArrowLbd.args;
+    assert(e->kind == ArrowLbd_kind);
+
+    RETURN_IF_ERROR(compiler_check_debug_args(c, args));
+
+    location loc = LOC(e);
+    funcflags = compiler_default_arguments(c, loc, args);
+    if (funcflags == -1) {
+        return ERROR;
+    }
+
+    _Py_DECLARE_STR(anon_lambda, "<lambda>");
+    RETURN_IF_ERROR(
+        compiler_enter_scope(c, &_Py_STR(anon_lambda), COMPILER_SCOPE_LAMBDA,
+                             (void *)e, e->lineno));
+
+    /* Make None the first constant, so the lambda can't have a
+       docstring. */
+    RETURN_IF_ERROR(compiler_add_const(c->c_const_cache, c->u, Py_None));
+
+    c->u->u_metadata.u_argcount = asdl_seq_LEN(args->args);
+    c->u->u_metadata.u_posonlyargcount = asdl_seq_LEN(args->posonlyargs);
+    c->u->u_metadata.u_kwonlyargcount = asdl_seq_LEN(args->kwonlyargs);
+    VISIT_IN_SCOPE(c, expr, e->v.ArrowLbd.body);
+    if (c->u->u_ste->ste_generator) {
+        co = optimize_and_assemble(c, 0);
+    }
+    else {
+        location loc = LOCATION(e->lineno, e->lineno, 0, 0);
+        ADDOP_IN_SCOPE(c, loc, RETURN_VALUE);
+        co = optimize_and_assemble(c, 1);
+    }
+    compiler_exit_scope(c);
+    if (co == NULL) {
+        return ERROR;
+    }
+
+    if (compiler_make_closure(c, loc, co, funcflags) < 0) {
+        Py_DECREF(co);
+        return ERROR;
+    }
+    Py_DECREF(co);
+    return SUCCESS;
+}
+
+static int
 compiler_if(struct compiler *c, stmt_ty s)
 {
     jump_target_label next;
@@ -6170,6 +6219,8 @@ compiler_visit_expr1(struct compiler *c, expr_ty e)
         return compiler_lambda(c, e);
     case IfExp_kind:
         return compiler_ifexp(c, e);
+    case ArrowLbd_kind:
+        return compiler_arrowlbd(c, e);
     case Dict_kind:
         return compiler_dict(c, e);
     case Set_kind:

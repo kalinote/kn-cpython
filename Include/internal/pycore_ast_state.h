@@ -20,6 +20,7 @@ struct ast_state {
     PyObject *And_singleton;
     PyObject *And_type;
     PyObject *AnnAssign_type;
+    PyObject *ArrowLbd_type;
     PyObject *Assert_type;
     PyObject *Assign_type;
     PyObject *AsyncFor_type;

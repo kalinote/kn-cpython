@@ -280,6 +280,7 @@ struct _Py_global_strings {
         STRUCT_FOR_ID(argdefs)
         STRUCT_FOR_ID(arguments)
         STRUCT_FOR_ID(argv)
+        STRUCT_FOR_ID(arrowlbd)
         STRUCT_FOR_ID(as_integer_ratio)
         STRUCT_FOR_ID(asend)
         STRUCT_FOR_ID(ast)

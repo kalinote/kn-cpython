@@ -2053,16 +2053,16 @@ symtable_extend_namedexpr_scope(struct symtable *st, expr_ty e)
                     Py_UNREACHABLE();
             }
             PyErr_RangedSyntaxLocationObject(st->st_filename,
-                                              e->lineno,
-                                              e->col_offset + 1,
-                                              e->end_lineno,
-                                              e->end_col_offset + 1);
+                                                e->lineno,
+                                                e->col_offset + 1,
+                                                e->end_lineno,
+                                                e->end_col_offset + 1);
             VISIT_QUIT(st, 0);
         }
     }
 
     /* We should always find either a function-like block, ModuleBlock or ClassBlock
-       and should never fall to this case
+        and should never fall to this case
     */
     Py_UNREACHABLE();
     return 0;
@@ -2144,6 +2144,22 @@ symtable_visit_expr(struct symtable *st, expr_ty e)
             VISIT_QUIT(st, 0);
         break;
     }
+    case ArrowLbd_kind: {
+            if (e->v.ArrowLbd.args->defaults)
+                VISIT_SEQ(st, expr, e->v.ArrowLbd.args->defaults);
+            if (e->v.ArrowLbd.args->kw_defaults)
+                VISIT_SEQ_WITH_NULL(st, expr, e->v.ArrowLbd.args->kw_defaults);
+            if (!symtable_enter_block(st, &_Py_ID(arrowlbd),
+                                    FunctionBlock, (void *)e,
+                                    e->lineno, e->col_offset,
+                                    e->end_lineno, e->end_col_offset))
+                VISIT_QUIT(st, 0);
+            VISIT(st, arguments, e->v.ArrowLbd.args);
+            VISIT(st, expr, e->v.ArrowLbd.body);
+            if (!symtable_exit_block(st))
+                VISIT_QUIT(st, 0);
+            break;
+        }
     case IfExp_kind:
         VISIT(st, expr, e->v.IfExp.test);
         VISIT(st, expr, e->v.IfExp.body);

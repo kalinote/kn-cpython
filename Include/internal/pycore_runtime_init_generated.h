@@ -789,6 +789,7 @@ extern "C" {
     INIT_ID(argdefs), \
     INIT_ID(arguments), \
     INIT_ID(argv), \
+    INIT_ID(arrowlbd), \
     INIT_ID(as_integer_ratio), \
     INIT_ID(asend), \
     INIT_ID(ast), \

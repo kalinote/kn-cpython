@@ -61,6 +61,8 @@ const char * const _PyParser_TokenNames[] = {
     "ELLIPSIS",
     "COLONEQUAL",
     "EXCLAMATION",
+    "EQARROW",
+    "LEFTEQARROW",
     "OP",
     "TYPE_IGNORE",
     "TYPE_COMMENT",
@@ -229,6 +231,20 @@ _PyToken_ThreeChars(int c1, int c2, int c3)
         case '<':
             switch (c3) {
             case '=': return LEFTSHIFTEQUAL;
+            }
+            break;
+        case '=':
+            switch (c3) {
+            case '=': return LEFTEQARROW;
+            }
+            break;
+        }
+        break;
+    case '=':
+        switch (c2) {
+        case '=':
+            switch (c3) {
+            case '>': return EQARROW;
             }
             break;
         }

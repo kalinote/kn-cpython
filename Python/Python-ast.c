@@ -32,6 +32,7 @@ void _PyAST_Fini(PyInterpreterState *interp)
     Py_CLEAR(state->And_singleton);
     Py_CLEAR(state->And_type);
     Py_CLEAR(state->AnnAssign_type);
+    Py_CLEAR(state->ArrowLbd_type);
     Py_CLEAR(state->Assert_type);
     Py_CLEAR(state->Assign_type);
     Py_CLEAR(state->AsyncFor_type);
@@ -559,6 +560,10 @@ static const char * const UnaryOp_fields[]={
     "operand",
 };
 static const char * const Lambda_fields[]={
+    "args",
+    "body",
+};
+static const char * const ArrowLbd_fields[]={
     "args",
     "body",
 };
@@ -1356,6 +1361,7 @@ init_types(struct ast_state *state)
         "     | BinOp(expr left, operator op, expr right)\n"
         "     | UnaryOp(unaryop op, expr operand)\n"
         "     | Lambda(arguments args, expr body)\n"
+        "     | ArrowLbd(arguments args, expr body)\n"
         "     | IfExp(expr test, expr body, expr orelse)\n"
         "     | Dict(expr* keys, expr* values)\n"
         "     | Set(expr* elts)\n"
@@ -1405,6 +1411,10 @@ init_types(struct ast_state *state)
                                    Lambda_fields, 2,
         "Lambda(arguments args, expr body)");
     if (!state->Lambda_type) return 0;
+    state->ArrowLbd_type = make_type(state, "ArrowLbd", state->expr_type,
+                                     ArrowLbd_fields, 2,
+        "ArrowLbd(arguments args, expr body)");
+    if (!state->ArrowLbd_type) return 0;
     state->IfExp_type = make_type(state, "IfExp", state->expr_type,
                                   IfExp_fields, 3,
         "IfExp(expr test, expr body, expr orelse)");
@@ -2815,6 +2825,34 @@ _PyAST_Lambda(arguments_ty args, expr_ty body, int lineno, int col_offset, int
     p->kind = Lambda_kind;
     p->v.Lambda.args = args;
     p->v.Lambda.body = body;
+    p->lineno = lineno;
+    p->col_offset = col_offset;
+    p->end_lineno = end_lineno;
+    p->end_col_offset = end_col_offset;
+    return p;
+}
+
+expr_ty
+_PyAST_ArrowLbd(arguments_ty args, expr_ty body, int lineno, int col_offset,
+                int end_lineno, int end_col_offset, PyArena *arena)
+{
+    expr_ty p;
+    if (!args) {
+        PyErr_SetString(PyExc_ValueError,
+                        "field 'args' is required for ArrowLbd");
+        return NULL;
+    }
+    if (!body) {
+        PyErr_SetString(PyExc_ValueError,
+                        "field 'body' is required for ArrowLbd");
+        return NULL;
+    }
+    p = (expr_ty)_PyArena_Malloc(arena, sizeof(*p));
+    if (!p)
+        return NULL;
+    p->kind = ArrowLbd_kind;
+    p->v.ArrowLbd.args = args;
+    p->v.ArrowLbd.body = body;
     p->lineno = lineno;
     p->col_offset = col_offset;
     p->end_lineno = end_lineno;
@@ -4547,6 +4585,21 @@ ast2obj_expr(struct ast_state *state, void* _o)
             goto failed;
         Py_DECREF(value);
         value = ast2obj_expr(state, o->v.Lambda.body);
+        if (!value) goto failed;
+        if (PyObject_SetAttr(result, state->body, value) == -1)
+            goto failed;
+        Py_DECREF(value);
+        break;
+    case ArrowLbd_kind:
+        tp = (PyTypeObject *)state->ArrowLbd_type;
+        result = PyType_GenericNew(tp, NULL, NULL);
+        if (!result) goto failed;
+        value = ast2obj_arguments(state, o->v.ArrowLbd.args);
+        if (!value) goto failed;
+        if (PyObject_SetAttr(result, state->args, value) == -1)
+            goto failed;
+        Py_DECREF(value);
+        value = ast2obj_expr(state, o->v.ArrowLbd.body);
         if (!value) goto failed;
         if (PyObject_SetAttr(result, state->body, value) == -1)
             goto failed;
@@ -9004,6 +9057,54 @@ obj2ast_expr(struct ast_state *state, PyObject* obj, expr_ty* out, PyArena*
         if (*out == NULL) goto failed;
         return 0;
     }
+    tp = state->ArrowLbd_type;
+    isinstance = PyObject_IsInstance(obj, tp);
+    if (isinstance == -1) {
+        return 1;
+    }
+    if (isinstance) {
+        arguments_ty args;
+        expr_ty body;
+
+        if (PyObject_GetOptionalAttr(obj, state->args, &tmp) < 0) {
+            return 1;
+        }
+        if (tmp == NULL) {
+            PyErr_SetString(PyExc_TypeError, "required field \"args\" missing from ArrowLbd");
+            return 1;
+        }
+        else {
+            int res;
+            if (_Py_EnterRecursiveCall(" while traversing 'ArrowLbd' node")) {
+                goto failed;
+            }
+            res = obj2ast_arguments(state, tmp, &args, arena);
+            _Py_LeaveRecursiveCall();
+            if (res != 0) goto failed;
+            Py_CLEAR(tmp);
+        }
+        if (PyObject_GetOptionalAttr(obj, state->body, &tmp) < 0) {
+            return 1;
+        }
+        if (tmp == NULL) {
+            PyErr_SetString(PyExc_TypeError, "required field \"body\" missing from ArrowLbd");
+            return 1;
+        }
+        else {
+            int res;
+            if (_Py_EnterRecursiveCall(" while traversing 'ArrowLbd' node")) {
+                goto failed;
+            }
+            res = obj2ast_expr(state, tmp, &body, arena);
+            _Py_LeaveRecursiveCall();
+            if (res != 0) goto failed;
+            Py_CLEAR(tmp);
+        }
+        *out = _PyAST_ArrowLbd(args, body, lineno, col_offset, end_lineno,
+                               end_col_offset, arena);
+        if (*out == NULL) goto failed;
+        return 0;
+    }
     tp = state->IfExp_type;
     isinstance = PyObject_IsInstance(obj, tp);
     if (isinstance == -1) {
@@ -12782,6 +12883,9 @@ astmodule_exec(PyObject *m)
         return -1;
     }
     if (PyModule_AddObjectRef(m, "Lambda", state->Lambda_type) < 0) {
+        return -1;
+    }
+    if (PyModule_AddObjectRef(m, "ArrowLbd", state->ArrowLbd_type) < 0) {
         return -1;
     }
     if (PyModule_AddObjectRef(m, "IfExp", state->IfExp_type) < 0) {
